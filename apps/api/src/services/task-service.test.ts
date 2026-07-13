@@ -35,6 +35,9 @@ vi.mock("../db/schema.js", () => ({
 }));
 
 vi.mock("./event-bus.js", () => ({ publishEvent: vi.fn() }));
+vi.mock("../workers/webhook-worker.js", () => ({
+  enqueueWebhookEvent: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("../logger.js", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
@@ -129,6 +132,34 @@ describe("transitionTask", () => {
         type: "task:state_changed",
         fromState: "pending",
         toState: "queued",
+      }),
+    );
+  });
+
+  it("clears stale errorMessage and resultSummary when a PR is detected (pr_opened)", async () => {
+    // Regression: the agent can exit non-zero after opening a valid PR.
+    // updateTaskResult persists e.g. "Exit code: 1" before PR detection runs,
+    // so the pr_opened transition must wipe those stale fields — a task with
+    // an open PR must not look like a failed task.
+    const task = {
+      id: "t1",
+      state: "running",
+      startedAt: new Date(),
+      ticketSource: null,
+      errorMessage: "Exit code: 1",
+      resultSummary: "Agent exited with code 1",
+    };
+    vi.mocked(db.select().from(undefined as any).where).mockResolvedValueOnce([task]);
+    vi.mocked(db as any).returning.mockResolvedValueOnce([
+      { ...task, state: "pr_opened", errorMessage: null, resultSummary: null },
+    ]);
+    vi.mocked(db.insert(undefined as any).values).mockResolvedValueOnce(undefined as any);
+    await transitionTask("t1", TaskState.PR_OPENED, "pr_detected", "https://github.com/o/r/pull/1");
+    expect(db.update(undefined as any).set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        state: TaskState.PR_OPENED,
+        errorMessage: null,
+        resultSummary: null,
       }),
     );
   });
