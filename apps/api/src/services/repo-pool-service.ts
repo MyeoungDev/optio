@@ -282,18 +282,22 @@ async function createRepoPod(
   const pvcSuffix = instanceIndex > 0 ? `-${instanceIndex}` : "";
   const pvcName = `optio-home-${repoUrl.replace(/[^a-zA-Z0-9]/g, "-").slice(0, 40)}${pvcSuffix}`;
   let pvcReady = false;
-  try {
-    const { execFile } = await import("node:child_process");
-    const { promisify } = await import("node:util");
-    const execFileAsync = promisify(execFile);
-
-    // Check if PVC already exists
+  // PVCs only exist for the kubernetes runtime. In docker/fake mode the
+  // kubectl shell-out would target whatever cluster the local kubeconfig
+  // points at — creating real PVCs from dev/test runs.
+  if (process.env.OPTIO_RUNTIME === "kubernetes") {
     try {
-      await execFileAsync("kubectl", ["get", "pvc", pvcName, "-n", "optio"]);
-      pvcReady = true;
-    } catch {
-      // PVC doesn't exist, create it
-      const pvcManifest = `apiVersion: v1
+      const { execFile } = await import("node:child_process");
+      const { promisify } = await import("node:util");
+      const execFileAsync = promisify(execFile);
+
+      // Check if PVC already exists
+      try {
+        await execFileAsync("kubectl", ["get", "pvc", pvcName, "-n", "optio"]);
+        pvcReady = true;
+      } catch {
+        // PVC doesn't exist, create it
+        const pvcManifest = `apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: ${pvcName}
@@ -306,13 +310,14 @@ spec:
   resources:
     requests:
       storage: 5Gi`;
-      // Use bash -c with heredoc since execFile doesn't support stdin input
-      await execFileAsync("bash", ["-c", `echo '${pvcManifest}' | kubectl apply -f - -n optio`]);
-      pvcReady = true;
-      logger.info({ pvcName }, "Created PVC for repo pod home directory");
+        // Use bash -c with heredoc since execFile doesn't support stdin input
+        await execFileAsync("bash", ["-c", `echo '${pvcManifest}' | kubectl apply -f - -n optio`]);
+        pvcReady = true;
+        logger.info({ pvcName }, "Created PVC for repo pod home directory");
+      }
+    } catch (err) {
+      logger.warn({ err, pvcName }, "Failed to create PVC, pod will use ephemeral storage");
     }
-  } catch (err) {
-    logger.warn({ err, pvcName }, "Failed to create PVC, pod will use ephemeral storage");
   }
 
   // Load shared directories and ensure cache PVC exists

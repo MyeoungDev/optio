@@ -22,3 +22,7 @@ helm/optio/values-prod.yaml
 # Generated OpenAPI artifacts (rebuild via `pnpm --filter @optio/api openapi:dump`)
 apps/api/openapi.generated.json
 apps/api/openapi.generated.d.ts
+
+# Playwright artifacts
+apps/web/test-results/
+apps/web/playwright-report/
