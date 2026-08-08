@@ -200,6 +200,29 @@ const ERROR_PATTERNS: Array<{
     }),
   },
   {
+    // Gemini API rejects bad keys with "API key not valid. Please pass a
+    // valid API key." and reason API_KEY_INVALID.
+    pattern: /API[_ ]?KEY[_ ]?INVALID|API key not valid/i,
+    classify: () => ({
+      category: "auth",
+      title: "Gemini API key invalid",
+      description: "The configured Gemini API key was rejected by the Google AI API.",
+      remedy:
+        "Go to Secrets and update GEMINI_API_KEY with a valid key from Google AI Studio, then retry the task.",
+      retryable: false,
+    }),
+  },
+  {
+    pattern: /GEMINI_API_KEY/i,
+    classify: () => ({
+      category: "auth",
+      title: "Gemini API key missing",
+      description: "No Gemini API key is configured and the Gemini agent cannot authenticate.",
+      remedy: "Go to Secrets and add GEMINI_API_KEY, or switch the repo to Vertex AI auth.",
+      retryable: true,
+    }),
+  },
+  {
     pattern: /COPILOT_GITHUB_TOKEN|copilot.*auth|copilot.*unauthorized|subscription.*required/i,
     classify: () => ({
       category: "auth",

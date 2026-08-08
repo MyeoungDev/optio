@@ -113,6 +113,28 @@ describe("classifyError", () => {
     expect(result.retryable).toBe(false);
   });
 
+  it("classifies invalid Gemini API key as non-retryable auth error", () => {
+    const result = classifyError(
+      "Error: [400 Bad Request] API key not valid. Please pass a valid API key. [reason: API_KEY_INVALID]",
+    );
+    expect(result.category).toBe("auth");
+    expect(result.title).toBe("Gemini API key invalid");
+    expect(result.retryable).toBe(false);
+  });
+
+  it("classifies missing GEMINI_API_KEY directly", () => {
+    const result = classifyError("Error: GEMINI_API_KEY environment variable is not set");
+    expect(result.category).toBe("auth");
+    expect(result.title).toBe("Gemini API key missing");
+    expect(result.retryable).toBe(true);
+  });
+
+  it("classifies missing GEMINI_API_KEY secret as permanent", () => {
+    const result = classifyError("Secret not found: GEMINI_API_KEY");
+    expect(result.category).toBe("auth");
+    expect(result.retryable).toBe(false);
+  });
+
   it("classifies OpenAI API key error directly", () => {
     const result = classifyError("Error: OPENAI_API_KEY is not set or invalid");
     expect(result.category).toBe("auth");
