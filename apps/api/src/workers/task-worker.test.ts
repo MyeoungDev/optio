@@ -113,7 +113,7 @@ describe("buildAgentCommand", () => {
     it("adds --model flag when OPTIO_CLAUDE_MODEL is set", () => {
       const env = { OPTIO_PROMPT: "Do work", OPTIO_CLAUDE_MODEL: "opus" };
       const cmds = buildAgentCommand("claude-code", env);
-      expect(cmds.some((c) => c.includes("--model opus"))).toBe(true);
+      expect(cmds.some((c) => c.includes("--model 'opus'"))).toBe(true);
     });
 
     it("adds context window suffix to --model flag", () => {
@@ -123,7 +123,8 @@ describe("buildAgentCommand", () => {
         OPTIO_CLAUDE_CONTEXT_WINDOW: "1m",
       };
       const cmds = buildAgentCommand("claude-code", env);
-      expect(cmds.some((c) => c.includes("--model opus[1m]"))).toBe(true);
+      // Quoted: [1m] would otherwise be a glob character class in bash
+      expect(cmds.some((c) => c.includes("--model 'opus[1m]'"))).toBe(true);
     });
 
     it("does not add --model flag when OPTIO_CLAUDE_MODEL is not set", () => {

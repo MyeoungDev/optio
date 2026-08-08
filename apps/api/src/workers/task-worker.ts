@@ -17,6 +17,7 @@ import {
   addTokenCounts,
 } from "@optio/shared";
 import { getAdapter } from "@optio/agent-adapters";
+import { shellSingleQuote } from "../utils/pod-env.js";
 import { parseClaudeEvent } from "../services/agent-event-parser.js";
 import { parseCodexEvent } from "../services/codex-event-parser.js";
 import { parseCopilotEvent } from "../services/copilot-event-parser.js";
@@ -1775,9 +1776,7 @@ export function buildInitialClaudeStreamMessage(prompt: string): string {
  * still performs `$VAR` expansion and backtick/`$()` command substitution
  * inside double quotes.
  */
-export function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, "'\\''")}'`;
-}
+export const shellQuote = shellSingleQuote;
 
 export function buildAgentCommand(
   agentType: string,
@@ -1807,7 +1806,7 @@ export function buildAgentCommand(
       const authSetup =
         env.OPTIO_AUTH_MODE === "max-subscription"
           ? [
-              `if curl -sf "${env.OPTIO_API_URL}/api/auth/claude-token" > /dev/null 2>&1; then echo "[optio] Token proxy OK"; fi`,
+              `if curl -sf ${shellQuote(`${env.OPTIO_API_URL}/api/auth/claude-token`)} > /dev/null 2>&1; then echo "[optio] Token proxy OK"; fi`,
               `unset ANTHROPIC_API_KEY 2>/dev/null || true`,
             ]
           : [];
@@ -1822,7 +1821,7 @@ export function buildAgentCommand(
       let modelFlag = "";
       if (modelName) {
         const ctx = ctxWindow === "1m" ? "[1m]" : "";
-        modelFlag = `--model ${modelName}${ctx}`;
+        modelFlag = `--model ${shellQuote(`${modelName}${ctx}`)}`;
       }
 
       return [
@@ -1854,7 +1853,7 @@ export function buildAgentCommand(
     }
     case "copilot": {
       const modelFlag = env.COPILOT_MODEL ? ` --model ${shellQuote(env.COPILOT_MODEL)}` : "";
-      const effortFlag = env.COPILOT_EFFORT ? ` --effort ${env.COPILOT_EFFORT}` : "";
+      const effortFlag = env.COPILOT_EFFORT ? ` --effort ${shellQuote(env.COPILOT_EFFORT)}` : "";
       return [
         `echo "[optio] Running GitHub Copilot..."`,
         `copilot --autopilot --yolo --max-autopilot-continues ${maxTurns} \\`,
