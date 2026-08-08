@@ -29,6 +29,7 @@ import {
 } from "./envoy-sidecar.js";
 import { parseIntEnv } from "@optio/shared";
 import { withSpan } from "../telemetry/spans.js";
+import { buildEnvExports } from "../utils/pod-env.js";
 
 const IDLE_TIMEOUT_MS = parseIntEnv("OPTIO_REPO_POD_IDLE_MS", 600000); // 10 min default
 const REPO_INIT_TIMEOUT_MS = parseIntEnv("OPTIO_REPO_INIT_TIMEOUT_MS", 120000); // 2 min default
@@ -907,13 +908,13 @@ export async function execTaskInRepoPod(
         .set({ worktreeState: "active", lastPodId: pod.id, updatedAt: new Date() })
         .where(eq(tasks.id, taskId));
 
-      // Build the exec command
-      const envJson = JSON.stringify({
+      // Build the exec command. Env values (including the task prompt) are
+      // embedded as inert single-quoted exports — see buildEnvExports.
+      const envExports = buildEnvExports({
         ...env,
         OPTIO_TASK_ID: taskId,
         REPO_INIT_TIMEOUT_SECS: String(Math.ceil(REPO_INIT_TIMEOUT_MS / 1000)),
       });
-      const envB64 = Buffer.from(envJson).toString("base64");
       const runToken = randomUUID();
 
       // Build worktree setup commands based on whether we're resetting or creating fresh
@@ -969,12 +970,7 @@ export async function execTaskInRepoPod(
 
       const script = [
         "set -e",
-        `eval $(echo '${envB64}' | base64 -d | python3 -c "`,
-        `import json, sys, shlex`,
-        `env = json.load(sys.stdin)`,
-        `for k, v in env.items():`,
-        `    print(f'export {k}={shlex.quote(v)}')`,
-        `")`,
+        ...envExports,
         `echo "[optio] Waiting for repo to be ready..."`,
         `for i in $(seq 1 \${REPO_INIT_TIMEOUT_SECS}); do [ -f /workspace/.ready ] && break; sleep 1; done`,
         `[ -f /workspace/.ready ] || { echo "[optio] ERROR: repo not ready after \${REPO_INIT_TIMEOUT_SECS}s (increase OPTIO_REPO_INIT_TIMEOUT_MS to extend)"; exit 1; }`,

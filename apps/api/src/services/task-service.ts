@@ -250,7 +250,10 @@ export async function transitionTask(
     updateFields.completedAt = new Date();
   }
   // Clear error fields on successful completion (PR merged after prior errors)
-  if (toState === TaskState.COMPLETED) {
+  // and on PR-open: the agent can exit non-zero after opening a valid PR, in
+  // which case updateTaskResult has already persisted e.g. "Exit code: 1".
+  // A task with an open PR is not completed, but it must not look failed.
+  if (toState === TaskState.COMPLETED || toState === TaskState.PR_OPENED) {
     updateFields.errorMessage = null;
     updateFields.resultSummary = null;
   }
