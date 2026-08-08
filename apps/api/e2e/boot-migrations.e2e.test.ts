@@ -12,11 +12,11 @@
  * /api/health response shape with the fake runtime, and boot idempotency
  * (second server against the SAME DB applies 0 migrations).
  *
- * KNOWN QUIRK asserted here: seedBuiltInProviders is NOT idempotent. Its
- * onConflictDoUpdate targets (slug, workspace_id), but built-in providers
- * have workspace_id = NULL and the plain UNIQUE("slug","workspace_id")
- * constraint treats NULLs as distinct — so the conflict never fires and
- * every boot inserts a fresh copy of all built-in providers.
+ * Also asserts seedBuiltInProviders idempotency across boots: its upsert
+ * targets the partial (slug WHERE workspace_id IS NULL) unique index, so
+ * re-seeding updates the existing built-in rows instead of duplicating them
+ * (it used to insert a fresh copy every boot — the composite
+ * UNIQUE("slug","workspace_id") treats NULLs as distinct).
  */
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -191,14 +191,14 @@ describe("boot from an empty database", () => {
 
     expect(await countMigrationRows()).toBe(migrationsBefore);
 
-    // seedBuiltInProviders re-ran but is NOT idempotent (see file docblock):
-    // NULL workspace_id defeats the (slug, workspace_id) upsert target, so
-    // the second boot inserted a full duplicate set of built-in providers.
+    // seedBuiltInProviders re-ran and is idempotent: the upsert targets the
+    // partial (slug WHERE workspace_id IS NULL) unique index, so the second
+    // boot updates the existing rows instead of inserting duplicates.
     const providersAfter = await withDb(
       EMPTY_DB_URL,
       (sql) => sql<{ slug: string }[]>`SELECT slug FROM connection_providers`,
     );
-    expect(providersAfter.length).toBe(providersBefore.length * 2);
+    expect(providersAfter.length).toBe(providersBefore.length);
     expect(new Set(providersAfter.map((r) => r.slug))).toEqual(
       new Set(providersBefore.map((r) => r.slug)),
     );
