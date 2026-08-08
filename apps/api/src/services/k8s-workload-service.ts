@@ -40,6 +40,17 @@ import { parseIntEnv } from "@optio/shared";
 import { logger } from "../logger.js";
 
 const NAMESPACE = process.env.OPTIO_NAMESPACE ?? "optio";
+
+/**
+ * Rootless mode (issue #532): for clusters that forbid root containers
+ * (restricted PodSecurity, OpenShift, rootless container runtimes), skip the
+ * root-running home-perm-fix initContainer and rely on fsGroup +
+ * fsGroupChangePolicy=OnRootMismatch for PVC ownership instead. Requires a
+ * CSI driver that honors fsGroup. Pods also declare runAsNonRoot.
+ */
+function isRootlessEnabled(): boolean {
+  return process.env.OPTIO_ROOTLESS === "true";
+}
 const TERMINATION_GRACE_PERIOD = parseIntEnv("OPTIO_TERMINATION_GRACE_PERIOD_SECONDS", 300);
 const POD_READY_TIMEOUT_MS = parseIntEnv("OPTIO_POD_READY_TIMEOUT_MS", 300000);
 const POD_READY_POLL_MS = 1_000;
@@ -644,6 +655,13 @@ export class K8sWorkloadManager {
       podSecCtx.fsGroup = 1001;
       podSecCtx.runAsUser = 1001;
       podSecCtx.runAsGroup = 1001;
+      if (isRootlessEnabled()) {
+        podSecCtx.runAsNonRoot = true;
+        // Let the kubelet/CSI driver fix volume ownership instead of the
+        // root chown initContainer (which rootless clusters can't run).
+        podSecCtx.fsGroupChangePolicy = "OnRootMismatch";
+        podSecCtx.seccompProfile = { type: "RuntimeDefault" };
+      }
       podSpec.securityContext = podSecCtx;
     }
 
@@ -664,7 +682,9 @@ export class K8sWorkloadManager {
     // root-owned and unwritable by the main container. Running chown as
     // root (UID 0) here is safe — it only touches the volume mount before
     // the main container starts.
-    if (restartPolicy === "Always") {
+    // Skipped in rootless mode: the chown requires root, and fsGroup +
+    // OnRootMismatch (set above) handles PVC ownership there instead.
+    if (restartPolicy === "Always" && !isRootlessEnabled()) {
       const permInit = new V1Container();
       permInit.name = "home-perm-fix";
       permInit.image = spec.image;
