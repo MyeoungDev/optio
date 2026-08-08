@@ -90,6 +90,12 @@ const AGENT_KEY_SECRETS = [
   "OPENAI_API_KEY",
   "CLAUDE_CODE_OAUTH_TOKEN",
   "COPILOT_GITHUB_TOKEN",
+  "GEMINI_API_KEY",
+  // Vertex-mode installs store project ids rather than API keys; count them
+  // so a Vertex-only setup still locks the /api/setup/* routes (mirrors the
+  // per-provider checks in routes/setup.ts).
+  "GOOGLE_CLOUD_PROJECT",
+  "CLAUDE_VERTEX_PROJECT_ID",
 ];
 
 let _setupCompleteCache: { value: boolean; expires: number } | null = null;
