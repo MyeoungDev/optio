@@ -11,7 +11,9 @@ import {
   customType,
   unique,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // ── Workspace enums ─────────────────────────────────────────────────────────
 
@@ -743,6 +745,12 @@ export const connectionProviders = pgTable(
   },
   (table) => [
     unique("connection_providers_slug_ws_key").on(table.slug, table.workspaceId),
+    // The composite unique above treats NULL workspace_id as distinct, so it
+    // can't stop duplicate built-in (NULL-workspace) rows; this partial index
+    // is the conflict target for seedBuiltInProviders()'s upsert.
+    uniqueIndex("connection_providers_slug_builtin_key")
+      .on(table.slug)
+      .where(sql`${table.workspaceId} IS NULL`),
     index("connection_providers_category_idx").on(table.category),
     index("connection_providers_workspace_id_idx").on(table.workspaceId),
   ],

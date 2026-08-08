@@ -332,7 +332,7 @@ export async function createProvider(
 
 /**
  * Idempotent seeder: creates or updates built-in providers.
- * Uses upsert on the (slug, workspaceId) unique constraint.
+ * Uses upsert on the partial (slug WHERE workspace_id IS NULL) unique index.
  */
 export async function seedBuiltInProviders(): Promise<void> {
   for (const provider of BUILT_IN_PROVIDERS) {
@@ -353,7 +353,13 @@ export async function seedBuiltInProviders(): Promise<void> {
         workspaceId: undefined, // built-in providers have NULL workspaceId
       })
       .onConflictDoUpdate({
-        target: [connectionProviders.slug, connectionProviders.workspaceId],
+        // Built-in providers have NULL workspace_id, and the composite
+        // (slug, workspace_id) constraint treats NULLs as distinct — its
+        // conflict never fires, which duplicated every built-in provider on
+        // each restart. Target the partial unique index on (slug) WHERE
+        // workspace_id IS NULL instead.
+        target: connectionProviders.slug,
+        targetWhere: isNull(connectionProviders.workspaceId),
         set: {
           name: provider.name,
           description: provider.description,
