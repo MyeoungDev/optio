@@ -145,6 +145,7 @@ export async function webhookRoutes(rawApp: FastifyInstance) {
       const workspaceId = req.user?.workspaceId ?? null;
       const webhook = await webhookService.createWebhook(req.body, req.user?.id, workspaceId);
       logAction({
+        workspaceId: req.user?.workspaceId ?? null,
         userId: req.user?.id,
         action: "webhook.create",
         params: { url: req.body.url, events: req.body.events },
@@ -185,6 +186,7 @@ export async function webhookRoutes(rawApp: FastifyInstance) {
       const updated = await webhookService.updateWebhook(id, req.body);
       if (!updated) return reply.status(404).send({ error: "Webhook not found" });
       logAction({
+        workspaceId: req.user?.workspaceId ?? null,
         userId: req.user?.id,
         action: "webhook.update",
         params: { webhookId: id, ...req.body },
@@ -221,6 +223,7 @@ export async function webhookRoutes(rawApp: FastifyInstance) {
       const deleted = await webhookService.deleteWebhook(id);
       if (!deleted) return reply.status(404).send({ error: "Webhook not found" });
       logAction({
+        workspaceId: req.user?.workspaceId ?? null,
         userId: req.user?.id,
         action: "webhook.delete",
         params: { webhookId: id },
