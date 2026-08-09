@@ -568,6 +568,13 @@
       "when": 1786218202000,
       "tag": "1786218202_dedup_builtin_connection_providers",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1786259406000,
+      "tag": "1786259406_ticket_provider_initial_sync",
+      "breakpoints": true
     }
   ]
 }

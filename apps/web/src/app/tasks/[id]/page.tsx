@@ -257,6 +257,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const isTerminal = ["completed", "failed", "cancelled"].includes(task.state);
   const canCancel = ["running", "queued", "provisioning", "needs_attention"].includes(task.state);
   const canRetry = ["failed", "cancelled"].includes(task.state);
+  // Backfilled ticket tasks (initial provider sweep) sit in pending until the
+  // user starts them; pipeline steps stay pending until their deps complete.
+  const canStart = task.state === "pending" && task.taskType !== "step";
   const canResume = ["needs_attention", "failed"].includes(task.state) && !!task.sessionId;
   // Chat composer shows whenever the message endpoint will accept a message:
   // - running + claude-code (mid-turn delivery via stream-json stdin), or
@@ -337,6 +340,16 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
               >
                 <RotateCcw className="w-3 h-3" />
                 Retry
+              </button>
+            )}
+            {canStart && (
+              <button
+                onClick={handleRetry}
+                disabled={actionLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary/10 text-primary text-xs hover:bg-primary/20 transition-colors disabled:opacity-50"
+              >
+                <Play className="w-3 h-3" />
+                Start
               </button>
             )}
             {canForceRestart && (

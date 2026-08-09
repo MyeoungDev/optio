@@ -332,6 +332,10 @@ export const ticketProviders = pgTable("ticket_providers", {
   lastError: text("last_error"),
   lastErrorAt: timestamp("last_error_at", { withTimezone: true }),
   consecutiveFailures: integer("consecutive_failures").notNull().default(0),
+  // NULL until the first successful sync completes. Tickets swept while this
+  // is NULL are backfill: their tasks are created pending, not auto-queued
+  // (issue #579).
+  initialSyncAt: timestamp("initial_sync_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
