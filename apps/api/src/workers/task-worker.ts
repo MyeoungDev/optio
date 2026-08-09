@@ -1111,32 +1111,40 @@ export function startTaskWorker() {
         // tasks.cost_usd, so replacing the original cost with just the resumed
         // invocation's spend undercounts total spend.
         //
-        // A first run (no resume/restart signal) has no prior spend to preserve,
-        // so it writes its value directly — this also keeps "redo from scratch"
-        // semantics for a fresh run. Accumulating never double-counts here: each
-        // relaunch is a distinct process reporting only its own cost, so
-        // prior + current is always the true total.
+        // A genuine first run has no prior spend to preserve, so it writes its
+        // value directly. Accumulating never double-counts: each relaunch is a
+        // distinct process reporting only its own cost, so prior + current is
+        // always the true total.
         //
         // Continuation signals: `resumeSessionId` (/resume, --resume), a
         // `restartFromBranch` fresh session on the existing PR (/force-restart,
         // auto-resume), or a `resumePrompt` (set by every relaunch path —
         // including message-resume where the stored session id may be absent).
-        // Any of the three means a prior run's cost is already recorded and must
-        // be preserved; only a genuine first run has none of them.
+        //
+        // Prior recorded usage counts as a continuation signal too (issue
+        // #580): retry-without-a-PR and BullMQ auto-retries enqueue a bare
+        // `{taskId}` job, but a failed attempt's tokens were still spent, so
+        // its cost must survive the relaunch even though the work restarts
+        // from scratch. Only a task with no recorded spend writes directly.
         const isContinuation = !!(resumeSessionId || restartFromBranch || resumePrompt);
+        const hasPriorUsage =
+          parseFloat(taskAfterExec.costUsd ?? "0") > 0 ||
+          (taskAfterExec.inputTokens ?? 0) > 0 ||
+          (taskAfterExec.outputTokens ?? 0) > 0;
+        const accumulate = isContinuation || hasPriorUsage;
         const costFields: Record<string, unknown> = {};
         if (result.costUsd != null) {
-          costFields.costUsd = isContinuation
+          costFields.costUsd = accumulate
             ? addCostStrings(taskAfterExec.costUsd, result.costUsd)
             : String(result.costUsd);
         }
         if (result.inputTokens != null) {
-          costFields.inputTokens = isContinuation
+          costFields.inputTokens = accumulate
             ? addTokenCounts(taskAfterExec.inputTokens, result.inputTokens)
             : result.inputTokens;
         }
         if (result.outputTokens != null) {
-          costFields.outputTokens = isContinuation
+          costFields.outputTokens = accumulate
             ? addTokenCounts(taskAfterExec.outputTokens, result.outputTokens)
             : result.outputTokens;
         }

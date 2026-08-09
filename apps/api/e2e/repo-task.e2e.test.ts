@@ -298,4 +298,36 @@ describe("repo-task e2e", () => {
     expect(resumed.inputTokens).toBe(200);
     expect(resumed.outputTokens).toBe(50);
   });
+
+  it("preserves a failed attempt's cost across a bare retry (issue #580)", async () => {
+    // The failed attempt still spent tokens: the fake reports $0.05 alongside
+    // the error, and the task records it.
+    const taskId = await createTask("Fail but spend [[mock:fail]] [[mock:cost:0.05]]");
+    const first = await waitForTaskState(taskId, [
+      "failed",
+      "completed",
+      "needs_attention",
+      "pr_opened",
+    ]);
+    expect(first.state).toBe("failed");
+    expect(first.costUsd).toBe("0.05");
+
+    // Retry without a PR enqueues a bare {taskId} job — no continuation
+    // signal. The relaunch re-runs the same prompt (fails again, another
+    // $0.05); the prior attempt's spend must accumulate, not be overwritten.
+    const { status } = await api(`/api/tasks/${taskId}/retry`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    expect(status).toBe(200);
+
+    const retried = await waitFor(
+      async () => {
+        const t = await getTask(taskId);
+        return t.state === "failed" && t.costUsd === "0.1" ? t : null;
+      },
+      { timeoutMs: 90_000, label: `task ${taskId} accumulates failed-attempt cost to 0.1` },
+    );
+    expect(retried.costUsd).toBe("0.1");
+  });
 });
