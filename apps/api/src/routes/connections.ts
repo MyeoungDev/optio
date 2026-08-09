@@ -168,6 +168,7 @@ export async function connectionRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/connection-providers",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "createConnectionProvider",
         summary: "Create a custom connection provider",
@@ -214,6 +215,7 @@ export async function connectionRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/connections",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "createConnection",
         summary: "Create a connection",
@@ -263,6 +265,7 @@ export async function connectionRoutes(rawApp: FastifyInstance) {
   app.patch(
     "/api/connections/:id",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "updateConnection",
         summary: "Update a connection",
@@ -295,6 +298,7 @@ export async function connectionRoutes(rawApp: FastifyInstance) {
   app.delete(
     "/api/connections/:id",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "deleteConnection",
         summary: "Delete a connection",
@@ -326,6 +330,7 @@ export async function connectionRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/connections/:id/test",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "testConnection",
         summary: "Test connection health",

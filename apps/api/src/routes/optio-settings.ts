@@ -5,6 +5,7 @@ import * as optioSettingsService from "../services/optio-settings-service.js";
 import { logAction } from "../services/optio-action-service.js";
 import { AGENT_TYPES, modelBelongsToAgentCatalog } from "@optio/shared";
 import { ErrorResponseSchema } from "../schemas/common.js";
+import { requireRole } from "../plugins/auth.js";
 
 const updateSettingsSchema = z
   .object({
@@ -59,6 +60,7 @@ export async function optioSettingsRoutes(rawApp: FastifyInstance) {
   app.put(
     "/api/optio/settings",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "updateOptioSettings",
         summary: "Update the Optio assistant settings",

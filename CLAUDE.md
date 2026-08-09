@@ -151,7 +151,7 @@ These are well-documented in code; read the relevant service files for details:
 - **Prompt templates**: `{{VARIABLE}}` + `{{#if VAR}}...{{/if}}` syntax. Priority: repo override → global default → hardcoded fallback
 - **Shared cache directories**: per-repo persistent PVCs for tool caches (npm, pip, cargo, etc.), managed via `/api/repos/:id/shared-directories`
 - **Interactive sessions**: persistent workspaces with terminal + agent chat, at `/sessions`
-- **Workspaces**: multi-tenancy via `workspaceId` column. Roles (admin/member/viewer) in schema but not fully enforced
+- **Workspaces**: multi-tenancy via `workspaceId` column. Roles (admin/member/viewer) enforced API-wide: a default-deny baseline in `plugins/auth.ts` makes viewers read-only on all mutating `/api` routes (self-scoped allowlist: logout, own PATs, workspace create/switch, notification prefs, own comments, ending own sessions); `requireRole("member"|"admin")` preHandlers gate routes explicitly (admin: repos, secrets, cluster, connections, MCP servers, ticket providers, shared directories, Optio settings, auth refresh, claude-token proxy); mutating WebSockets (session terminal/chat, Optio chat) enforce `requireWsRole` in `ws/ws-authz.ts`
 - **Standalone Tasks / Jobs** (`workflow-service.ts`, `workflow-worker.ts`): top-level **Jobs** nav item under "Run" (list at `/jobs`, detail at `/jobs/:id`, runs at `/jobs/:id/runs/:runId`). Agent runs with no repo, `{{PARAM}}` prompt templates, four trigger types (manual/schedule/webhook/ticket), pooled pod execution, real-time log streaming, auto-retry with exponential backoff. Pods are **shared across runs within a workflow**, keyed on `(workflow_id, instance_index)`: each workflow has `workflows.maxPodInstances` pod replicas (default 1, max 20) and `workflows.maxAgentsPerPod` concurrent runs per pod (default 2, max 50) — mirrors repo pod scaling. Runs track their assigned pod via `workflow_runs.pod_id` and remember it for retry affinity via `last_pod_id`. Schema: `workflows`, `workflow_triggers`, `workflow_runs`, `workflow_run_logs`, `workflow_pods`
 - **Repo Task Configs** (`task-config-service.ts`, routes in `task-configs.ts`): reusable Repo Task blueprints that spawn tasks when triggers fire. `instantiateTask(configId, { triggerId, params })` creates a task with rendered prompt + title, transitions it to QUEUED, and enqueues the BullMQ job. UI at `/tasks/scheduled`. Schema: `task_configs`
 - **Triggers** (`workflow-trigger-service.ts`, `workflow-trigger-worker.ts`): polymorphic trigger table (`workflow_triggers`) keyed by `(target_type, target_id)`. `target_type="job"` dispatches to `createWorkflowRun`; `target_type="task_config"` dispatches to `instantiateTask`. Schedule trigger worker polls every 60s (`OPTIO_WORKFLOW_TRIGGER_INTERVAL`).
@@ -299,6 +299,5 @@ Key `values.yaml` settings:
 
 ## Known Issues
 
-- Workspace RBAC roles are in schema but not fully enforced in all routes
 - API container runs via `tsx` rather than compiled JS (workspace packages export `./src/index.ts`)
 - OAuth tokens from `claude setup-token` have limited scopes vs Keychain-extracted tokens

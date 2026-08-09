@@ -5,6 +5,7 @@ import * as mcpService from "../services/mcp-server-service.js";
 import { logAction } from "../services/optio-action-service.js";
 import { ErrorResponseSchema, IdParamsSchema } from "../schemas/common.js";
 import { McpServerSchema } from "../schemas/integration.js";
+import { requireRole } from "../plugins/auth.js";
 
 const scopeQuerySchema = z
   .object({
@@ -89,6 +90,7 @@ export async function mcpServerRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/mcp-servers",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "createMcpServer",
         summary: "Create a global MCP server",
@@ -116,6 +118,7 @@ export async function mcpServerRoutes(rawApp: FastifyInstance) {
   app.patch(
     "/api/mcp-servers/:id",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "updateMcpServer",
         summary: "Update an MCP server",
@@ -150,6 +153,7 @@ export async function mcpServerRoutes(rawApp: FastifyInstance) {
   app.delete(
     "/api/mcp-servers/:id",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "deleteMcpServer",
         summary: "Delete an MCP server",
@@ -208,6 +212,7 @@ export async function mcpServerRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/repos/:id/mcp-servers",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "createRepoMcpServer",
         summary: "Create a repo-scoped MCP server",

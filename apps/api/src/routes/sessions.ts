@@ -13,6 +13,7 @@ import {
   SessionModelConfigSchema,
   SessionPrSchema,
 } from "../schemas/session.js";
+import { requireRole } from "../plugins/auth.js";
 
 const sessionChatQuerySchema = z
   .object({
@@ -241,6 +242,7 @@ export async function sessionRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/sessions",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "createSession",
         summary: "Create an interactive session",

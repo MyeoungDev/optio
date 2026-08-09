@@ -8,6 +8,7 @@ import * as triggerService from "../services/workflow-trigger-service.js";
 import { logAction } from "../services/optio-action-service.js";
 import { ErrorResponseSchema } from "../schemas/common.js";
 import { WorkflowTriggerSchema } from "../schemas/workflow.js";
+import { requireRole } from "../plugins/auth.js";
 
 const triggerTypeEnum = z
   .enum(["manual", "schedule", "webhook"])
@@ -114,6 +115,7 @@ export async function workflowTriggerRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/jobs/:id/triggers",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "createWorkflowTrigger",
         summary: "Create a workflow trigger",
@@ -186,6 +188,7 @@ export async function workflowTriggerRoutes(rawApp: FastifyInstance) {
   app.patch(
     "/api/jobs/:id/triggers/:triggerId",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "updateWorkflowTrigger",
         summary: "Update a workflow trigger",
@@ -249,6 +252,7 @@ export async function workflowTriggerRoutes(rawApp: FastifyInstance) {
   app.delete(
     "/api/jobs/:id/triggers/:triggerId",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "deleteWorkflowTrigger",
         summary: "Delete a workflow trigger",

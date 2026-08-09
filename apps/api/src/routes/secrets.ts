@@ -99,6 +99,7 @@ export async function secretRoutes(rawApp: FastifyInstance) {
   app.get(
     "/api/secrets",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "listSecrets",
         summary: "List secrets",

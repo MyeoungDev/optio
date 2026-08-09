@@ -17,7 +17,7 @@ import {
 } from "../services/session-service.js";
 import { createApiKey, listApiKeys, revokeApiKey } from "../services/api-key-service.js";
 import { storeUserGitHubTokens } from "../services/github-token-service.js";
-import { SESSION_COOKIE_NAME } from "../plugins/auth.js";
+import { SESSION_COOKIE_NAME, requireRole } from "../plugins/auth.js";
 import { getRedisClient } from "../services/event-bus.js";
 import { ErrorResponseSchema, IdParamsSchema } from "../schemas/common.js";
 
@@ -204,6 +204,7 @@ export async function authRoutes(rawApp: FastifyInstance) {
   app.get(
     "/api/auth/claude-token",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         hide: true,
         operationId: "getClaudeToken",
@@ -328,6 +329,7 @@ export async function authRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/auth/refresh",
     {
+      preHandler: [requireRole("admin")],
       schema: {
         operationId: "refreshAuthCache",
         summary: "Refresh the credential cache",

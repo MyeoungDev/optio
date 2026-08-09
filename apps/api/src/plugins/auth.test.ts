@@ -245,6 +245,95 @@ describe("authPlugin workspace context", () => {
   });
 });
 
+describe("authPlugin viewer read-only baseline", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authDisabled = false;
+    mockValidateApiKey.mockResolvedValue(null);
+    mockEnsureUserHasWorkspace.mockResolvedValue("ws-1");
+  });
+
+  async function buildAppWithRole(role: string): Promise<FastifyInstance> {
+    mockValidateSession.mockResolvedValue(makeUser(null));
+    mockGetUserRole.mockResolvedValue(role);
+    const app = Fastify({ logger: false });
+    await app.register(authPlugin);
+    const ok = async () => ({ ok: true });
+    app.get("/api/things", ok);
+    app.post("/api/things", ok);
+    app.patch("/api/things/:id", ok);
+    app.delete("/api/things/:id", ok);
+    app.post("/api/auth/logout", ok);
+    app.delete("/api/auth/api-keys/key-1", ok);
+    app.post("/api/workspaces", ok);
+    app.post("/api/workspaces/ws-2/switch", ok);
+    app.post("/api/notifications/subscribe", ok);
+    app.post("/api/tasks/task-1/comments", ok);
+    app.patch("/api/tasks/task-1/comments/c-1", ok);
+    app.post("/api/sessions/s-1/end", ok);
+    await app.ready();
+    return app;
+  }
+
+  const auth = { authorization: "Bearer session-token" };
+
+  it("blocks viewers from mutating API routes", async () => {
+    const app = await buildAppWithRole("viewer");
+    for (const [method, url] of [
+      ["POST", "/api/things"],
+      ["PATCH", "/api/things/t-1"],
+      ["DELETE", "/api/things/t-1"],
+    ] as const) {
+      const res = await app.inject({ method, url, headers: auth });
+      expect(res.statusCode, `${method} ${url}`).toBe(403);
+      expect(res.json().error).toMatch(/read-only/);
+    }
+    await app.close();
+  });
+
+  it("still allows viewers to read", async () => {
+    const app = await buildAppWithRole("viewer");
+    const res = await app.inject({ method: "GET", url: "/api/things", headers: auth });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("allows viewers the self-scoped mutations", async () => {
+    const app = await buildAppWithRole("viewer");
+    for (const [method, url] of [
+      ["POST", "/api/auth/logout"],
+      ["DELETE", "/api/auth/api-keys/key-1"],
+      ["POST", "/api/workspaces"],
+      ["POST", "/api/workspaces/ws-2/switch"],
+      ["POST", "/api/notifications/subscribe"],
+      ["POST", "/api/tasks/task-1/comments"],
+      ["PATCH", "/api/tasks/task-1/comments/c-1"],
+      ["POST", "/api/sessions/s-1/end"],
+    ] as const) {
+      const res = await app.inject({ method, url, headers: auth });
+      expect(res.statusCode, `${method} ${url}`).toBe(200);
+    }
+    await app.close();
+  });
+
+  it("lets members and admins mutate", async () => {
+    for (const role of ["member", "admin"]) {
+      const app = await buildAppWithRole(role);
+      const res = await app.inject({ method: "POST", url: "/api/things", headers: auth });
+      expect(res.statusCode, role).toBe(200);
+      await app.close();
+    }
+  });
+
+  it("does not apply when auth is disabled", async () => {
+    authDisabled = true;
+    const app = await buildAppWithRole("viewer");
+    const res = await app.inject({ method: "POST", url: "/api/things" });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+});
+
 describe("isPublicRoute", () => {
   // ─── Non-auth public routes ───
 

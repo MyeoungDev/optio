@@ -44,6 +44,32 @@ export function requireRole(minimumRole: WorkspaceRole) {
 const SESSION_COOKIE_NAME = "optio_session";
 const WORKSPACE_HEADER = "x-workspace-id";
 
+/** HTTP methods that mutate state and therefore require at least "member". */
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+/**
+ * Mutating routes that stay available to every authenticated user regardless
+ * of workspace role (including viewers). These act only on the caller's own
+ * resources — session, PATs, notification prefs, own comments — or create a
+ * workspace the caller becomes admin of. Route/service-level ownership checks
+ * still apply.
+ */
+const SELF_SCOPED_MUTATIONS: RegExp[] = [
+  /^\/api\/auth\/logout$/,
+  /^\/api\/auth\/api-keys(\/[^/]+)?$/,
+  /^\/api\/workspaces$/,
+  /^\/api\/workspaces\/[^/]+\/switch$/,
+  /^\/api\/notifications\/(subscribe|preferences|test)$/,
+  // Commenting is a viewer right; edits/deletes are owner-gated in the service.
+  /^\/api\/tasks\/[^/]+\/comments(\/[^/]+)?$/,
+  // Ending one's own session is owner-gated in the route.
+  /^\/api\/sessions\/[^/]+\/end$/,
+];
+
+function isSelfScopedMutation(path: string): boolean {
+  return SELF_SCOPED_MUTATIONS.some((re) => re.test(path));
+}
+
 /** Exact routes that are always public. */
 const PUBLIC_ROUTES = new Set([
   "/api/health",
@@ -211,6 +237,21 @@ async function authPlugin(app: FastifyInstance) {
     }
 
     req.user = user;
+
+    // Default-deny baseline: mutating API requests require at least "member".
+    // Viewers are read-only except for the self-scoped allowlist above.
+    // Route-level requireRole preHandlers can still demand "admin"; this is
+    // the safety net that keeps a newly added route from shipping writable
+    // by viewers.
+    const path = req.url.split("?")[0];
+    if (MUTATING_METHODS.has(req.method) && path.startsWith("/api/")) {
+      const level = user.workspaceRole ? (ROLE_LEVEL[user.workspaceRole] ?? 0) : 0;
+      if (level < ROLE_LEVEL.member && !isSelfScopedMutation(path)) {
+        return reply.status(403).send({
+          error: "Forbidden: viewers have read-only access",
+        });
+      }
+    }
   });
 }
 

@@ -39,7 +39,17 @@ vi.mock("./ws-limits.js", () => ({
   WS_CLOSE_CONNECTION_LIMIT: 4408,
 }));
 
-import { assertWorkspace, WS_CLOSE_FORBIDDEN } from "./ws-authz.js";
+let authDisabled = false;
+vi.mock("../services/oauth/index.js", () => ({
+  isAuthDisabled: () => authDisabled,
+}));
+
+const mockGetUserRole = vi.fn();
+vi.mock("../services/workspace-service.js", () => ({
+  getUserRole: (...a: unknown[]) => mockGetUserRole(...a),
+}));
+
+import { assertWorkspace, requireWsRole, WS_CLOSE_FORBIDDEN } from "./ws-authz.js";
 import { workflowRunLogStreamWs } from "./workflow-run-log-stream.js";
 import { persistentAgentStreamWs } from "./persistent-agent-stream.js";
 
@@ -96,6 +106,70 @@ describe("assertWorkspace", () => {
     const socket = mockSocket();
     expect(assertWorkspace(socket, "ws-A", null)).toBe(false);
     expect(socket.close).toHaveBeenCalledWith(4403, "Access denied");
+  });
+});
+
+describe("requireWsRole", () => {
+  const user = { id: "user-1", workspaceId: "ws-1" };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    authDisabled = false;
+  });
+
+  it("passes for a member when 'member' is required", async () => {
+    mockGetUserRole.mockResolvedValue("member");
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, user, "member")).toBe(true);
+    expect(mockGetUserRole).toHaveBeenCalledWith("ws-1", "user-1");
+    expect(socket.close).not.toHaveBeenCalled();
+  });
+
+  it("passes for an admin when 'member' is required", async () => {
+    mockGetUserRole.mockResolvedValue("admin");
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, user, "member")).toBe(true);
+  });
+
+  it("closes 4403 for a viewer when 'member' is required", async () => {
+    mockGetUserRole.mockResolvedValue("viewer");
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, user, "member")).toBe(false);
+    expect(socket.close).toHaveBeenCalledWith(WS_CLOSE_FORBIDDEN, "Requires member role");
+  });
+
+  it("closes 4403 for a member when 'admin' is required", async () => {
+    mockGetUserRole.mockResolvedValue("member");
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, user, "admin")).toBe(false);
+    expect(socket.close).toHaveBeenCalledWith(WS_CLOSE_FORBIDDEN, "Requires admin role");
+  });
+
+  it("prefers the resource workspace over the user's active workspace", async () => {
+    mockGetUserRole.mockResolvedValue("member");
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, user, "member", "ws-resource")).toBe(true);
+    expect(mockGetUserRole).toHaveBeenCalledWith("ws-resource", "user-1");
+  });
+
+  it("denies when no workspace can be resolved", async () => {
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, { id: "user-1", workspaceId: null }, "member")).toBe(false);
+    expect(mockGetUserRole).not.toHaveBeenCalled();
+    expect(socket.close).toHaveBeenCalledWith(WS_CLOSE_FORBIDDEN, "Requires member role");
+  });
+
+  it("denies a non-member (no role in workspace)", async () => {
+    mockGetUserRole.mockResolvedValue(null);
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, user, "member")).toBe(false);
+  });
+
+  it("always passes when auth is disabled", async () => {
+    authDisabled = true;
+    const socket = mockSocket();
+    expect(await requireWsRole(socket, { id: "local", workspaceId: null }, "member")).toBe(true);
+    expect(mockGetUserRole).not.toHaveBeenCalled();
   });
 });
 

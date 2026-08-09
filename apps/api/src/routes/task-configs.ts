@@ -4,6 +4,7 @@ import { z } from "zod";
 import * as taskConfigService from "../services/task-config-service.js";
 import { logAction } from "../services/optio-action-service.js";
 import { ErrorResponseSchema, IdParamsSchema } from "../schemas/common.js";
+import { requireRole } from "../plugins/auth.js";
 
 const flexibleTimestamp = z.union([z.date(), z.string()]);
 
@@ -85,6 +86,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/task-configs",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "createTaskConfig",
         summary: "Create a task config",
@@ -150,6 +152,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.patch(
     "/api/task-configs/:id",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "updateTaskConfig",
         summary: "Update a task config",
@@ -198,6 +201,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.delete(
     "/api/task-configs/:id",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "deleteTaskConfig",
         summary: "Delete a task config",
@@ -318,6 +322,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/task-configs/:id/triggers",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "createTaskConfigTrigger",
         summary: "Create a trigger for a task config",
@@ -382,6 +387,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.patch(
     "/api/task-configs/:id/triggers/:triggerId",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "updateTaskConfigTrigger",
         summary: "Update a trigger on a task config",
@@ -440,6 +446,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.delete(
     "/api/task-configs/:id/triggers/:triggerId",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "deleteTaskConfigTrigger",
         summary: "Delete a trigger on a task config",
@@ -481,6 +488,7 @@ export async function taskConfigRoutes(rawApp: FastifyInstance) {
   app.post(
     "/api/task-configs/:id/run",
     {
+      preHandler: [requireRole("member")],
       schema: {
         operationId: "runTaskConfig",
         summary: "Manually instantiate a task from a task config",
