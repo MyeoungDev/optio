@@ -30,6 +30,7 @@ export interface RepoRecord {
   opencodeAgent: string | null;
   opencodeProvider: string | null;
   opencodeBaseUrl: string | null;
+  cursorModel: string | null;
   geminiModel: string | null;
   geminiApprovalMode: string | null;
   maxTurnsCoding: number | null;

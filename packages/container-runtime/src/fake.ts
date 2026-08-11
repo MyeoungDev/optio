@@ -41,6 +41,19 @@ const AGENT_EXEC_MARKER = "--output-format stream-json";
 /** Markers of non-claude agent CLIs the fake cannot play — fail loudly. */
 const UNSUPPORTED_AGENT_MARKERS = [" codex ", " copilot ", " gemini ", " opencode ", " openclaw "];
 /**
+ * Cursor's stream-json events are claude-shaped (system:init / assistant /
+ * result), so the fake plays cursor-agent execs with the standard tape. The
+ * prompt arrives as a positional `"$OPTIO_PROMPT"` (no stdin priming), set by
+ * the exec script's `export OPTIO_PROMPT='...'` line — extract it from there.
+ */
+const CURSOR_EXEC_MARKER = "cursor-agent ";
+
+/** Pull the OPTIO_PROMPT value out of the exec script's single-quoted export. */
+function extractScriptPrompt(script: string): string {
+  const m = script.match(/export OPTIO_PROMPT='([^']*(?:'\\''[^']*)*)'/);
+  return m ? m[1].replaceAll("'\\''", "'") : "";
+}
+/**
  * How long exec waits for a prompt on stdin before failing the run — a
  * missing prompt means the worker's stdin delivery broke, which must surface
  * loudly rather than play a success tape. Overridable for unit tests.
@@ -336,6 +349,10 @@ export class FakeContainerRuntime implements ContainerRuntime {
     closers.add(close);
 
     if (inlinePrompt) handlePrompt(inlinePrompt[1]);
+    // Cursor delivers the prompt as a positional env-var reference, not stdin.
+    if (script.includes(CURSOR_EXEC_MARKER)) {
+      handlePrompt(extractScriptPrompt(script) || (spec?.env?.OPTIO_PROMPT ?? ""));
+    }
 
     return {
       stdin,

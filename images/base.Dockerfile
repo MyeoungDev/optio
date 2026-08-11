@@ -92,6 +92,18 @@ RUN npm install -g @google/gemini-cli
 # OpenClaw CLI (experimental)
 RUN npm install -g openclaw || echo "WARN: openclaw install failed; openclaw agent will not be available in this image"
 
+# Cursor CLI (cursor-agent). The install script drops a versioned payload under
+# ~/.local/share/cursor-agent with a ~/.local/bin/cursor-agent symlink; relocate
+# it to /opt so the non-root agent user can run it. Best-effort like the other
+# non-npm installs — cursor.com is a single point of failure for the script.
+RUN (curl -fsS https://cursor.com/install | bash \
+  && CURSOR_BIN="$(readlink -f /root/.local/bin/cursor-agent)" \
+  && mkdir -p /opt/cursor-agent \
+  && cp -a "$(dirname "$CURSOR_BIN")/." /opt/cursor-agent/ \
+  && ln -sf /opt/cursor-agent/cursor-agent /usr/local/bin/cursor-agent \
+  && rm -rf /root/.local/share/cursor-agent /root/.local/bin/cursor-agent) \
+  || echo "WARN: cursor-agent install failed; cursor agent will not be available in this image"
+
 # Python 3 (minimal — needed for setup file injection)
 RUN apt-get update && apt-get install -y python3 \
     && rm -rf /var/lib/apt/lists/*

@@ -35,6 +35,7 @@ import { parseCodexEvent } from "../services/codex-event-parser.js";
 import { parseCopilotEvent } from "../services/copilot-event-parser.js";
 import { parseOpenCodeEvent } from "../services/opencode-event-parser.js";
 import { parseGeminiEvent } from "../services/gemini-event-parser.js";
+import { parseCursorEvent } from "../services/cursor-event-parser.js";
 import { enqueueReconcile } from "../services/reconcile-queue.js";
 import { getBullMQConnectionOptions } from "../services/redis-config.js";
 import { logger } from "../logger.js";
@@ -172,6 +173,16 @@ function buildAgentCommand(
         `gemini ${geminiModelFlag} -p "$OPTIO_PROMPT"`,
       ];
     }
+    case "cursor": {
+      const cursorModelFlag = env.OPTIO_CURSOR_MODEL
+        ? ` --model ${JSON.stringify(env.OPTIO_CURSOR_MODEL)}`
+        : "";
+      return [
+        `echo "[optio] Running persistent agent turn (Cursor)..."`,
+        `cursor-agent --print --trust --force \\`,
+        `  --output-format stream-json${cursorModelFlag} "$OPTIO_PROMPT"`,
+      ];
+    }
     default:
       return [`echo "Unknown agent runtime: ${agentRuntime}"`, `exit 1`];
   }
@@ -196,6 +207,8 @@ function pickEventParser(agentRuntime: string) {
       return parseOpenCodeEvent;
     case "gemini":
       return parseGeminiEvent;
+    case "cursor":
+      return parseCursorEvent;
     default:
       return parseClaudeEvent;
   }

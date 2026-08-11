@@ -11,7 +11,7 @@ Optio is an orchestration system for AI coding agents. Think of it as "CI/CD whe
 - **Repo Task** — `Where` is set. The agent clones the repo into a worktree and opens a PR:
   1. Spins up an isolated Kubernetes pod for the repository (pod-per-repo)
   2. Creates a git worktree for the task (multiple run concurrently per repo)
-  3. Runs Claude Code, OpenAI Codex, GitHub Copilot, Google Gemini, or OpenCode with the prompt
+  3. Runs Claude Code, OpenAI Codex, GitHub Copilot, Google Gemini, OpenCode, or Cursor with the prompt
   4. Streams structured logs back to a web UI in real time
   5. Agent stops after opening a PR (no CI blocking)
   6. PR watcher tracks CI checks, review status, and merge state

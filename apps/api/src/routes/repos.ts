@@ -54,6 +54,7 @@ const updateRepoSchema = z
     geminiApprovalMode: z.string().optional(),
     openclawModel: z.string().nullable().optional(),
     openclawAgent: z.string().nullable().optional(),
+    cursorModel: z.string().nullable().optional(),
     maxTurnsCoding: z.number().int().min(1).max(10000).optional(),
     maxTurnsReview: z.number().int().min(1).max(10000).optional(),
     autoResume: z.boolean().optional(),

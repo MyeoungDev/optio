@@ -200,6 +200,18 @@ const ERROR_PATTERNS: Array<{
     }),
   },
   {
+    pattern: /CURSOR_API_KEY/i,
+    classify: () => ({
+      category: "auth",
+      title: "Cursor API key missing or invalid",
+      description:
+        "No valid Cursor API key is configured and the Cursor agent cannot authenticate.",
+      remedy:
+        "Go to Secrets and add CURSOR_API_KEY with an API key from cursor.com dashboard settings, then retry the task.",
+      retryable: true,
+    }),
+  },
+  {
     // Gemini API rejects bad keys with "API key not valid. Please pass a
     // valid API key." and reason API_KEY_INVALID.
     pattern: /API[_ ]?KEY[_ ]?INVALID|API key not valid/i,

@@ -4,6 +4,7 @@ import { GEMINI_CATALOG } from "./gemini.js";
 import { COPILOT_CATALOG } from "./copilot.js";
 import { OPENCODE_CATALOG } from "./opencode.js";
 import { OPENCLAW_CATALOG } from "./openclaw.js";
+import { CURSOR_CATALOG } from "./cursor.js";
 import type { AgentProviderId, LiveModel, ModelOption, ProviderCatalog } from "./types.js";
 
 export type {
@@ -20,6 +21,7 @@ export { GEMINI_CATALOG } from "./gemini.js";
 export { COPILOT_CATALOG } from "./copilot.js";
 export { OPENCODE_CATALOG } from "./opencode.js";
 export { OPENCLAW_CATALOG } from "./openclaw.js";
+export { CURSOR_CATALOG } from "./cursor.js";
 
 /** All providers, keyed by id. */
 export const PROVIDER_CATALOGS: Record<AgentProviderId, ProviderCatalog> = {
@@ -29,6 +31,7 @@ export const PROVIDER_CATALOGS: Record<AgentProviderId, ProviderCatalog> = {
   copilot: COPILOT_CATALOG,
   opencode: OPENCODE_CATALOG,
   openclaw: OPENCLAW_CATALOG,
+  cursor: CURSOR_CATALOG,
 };
 
 export const ALL_PROVIDER_IDS: readonly AgentProviderId[] = [
@@ -38,6 +41,7 @@ export const ALL_PROVIDER_IDS: readonly AgentProviderId[] = [
   "copilot",
   "opencode",
   "openclaw",
+  "cursor",
 ];
 
 /**
@@ -45,7 +49,14 @@ export const ALL_PROVIDER_IDS: readonly AgentProviderId[] = [
  * `repos.review_agent_type`, etc. Each one maps to a provider catalog via
  * `providerForAgentType()`.
  */
-export type AgentType = "claude-code" | "codex" | "copilot" | "opencode" | "gemini" | "openclaw";
+export type AgentType =
+  | "claude-code"
+  | "codex"
+  | "copilot"
+  | "opencode"
+  | "gemini"
+  | "openclaw"
+  | "cursor";
 
 export const AGENT_TYPES: readonly AgentType[] = [
   "claude-code",
@@ -54,6 +65,7 @@ export const AGENT_TYPES: readonly AgentType[] = [
   "opencode",
   "gemini",
   "openclaw",
+  "cursor",
 ];
 
 /**
@@ -74,6 +86,8 @@ export function providerForAgentType(agentType: AgentType | string): AgentProvid
       return "opencode";
     case "openclaw":
       return "openclaw";
+    case "cursor":
+      return "cursor";
     default:
       // Fall back to anthropic — preserves existing behavior for legacy rows.
       return "anthropic";

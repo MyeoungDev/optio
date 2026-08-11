@@ -24,6 +24,7 @@ import { parseCopilotEvent } from "../services/copilot-event-parser.js";
 import { parseOpenCodeEvent } from "../services/opencode-event-parser.js";
 import { parseGeminiEvent } from "../services/gemini-event-parser.js";
 import { parseOpenClawEvent } from "../services/openclaw-event-parser.js";
+import { parseCursorEvent } from "../services/cursor-event-parser.js";
 import {
   checkExistingPr,
   resolveDetectedPrUrl,
@@ -381,6 +382,7 @@ export function startTaskWorker() {
           opencodeModel: repoConfig?.opencodeModel ?? opencodeDefaultModel,
           opencodeAgent: repoConfig?.opencodeAgent ?? undefined,
           opencodeBaseUrl: repoConfig?.opencodeBaseUrl ?? opencodeDefaultBaseUrl,
+          cursorModel: repoConfig?.cursorModel ?? undefined,
           geminiAuthMode,
           geminiModel: repoConfig?.geminiModel ?? undefined,
           geminiApprovalMode:
@@ -943,7 +945,9 @@ export function startTaskWorker() {
                       ? parseGeminiEvent(line, taskId)
                       : task.agentType === "openclaw"
                         ? parseOpenClawEvent(line, taskId)
-                        : parseClaudeEvent(line, taskId);
+                        : task.agentType === "cursor"
+                          ? parseCursorEvent(line, taskId)
+                          : parseClaudeEvent(line, taskId);
             if (parsed.sessionId && !sessionId) {
               sessionId = parsed.sessionId;
               await taskService.updateTaskSession(taskId, sessionId);
@@ -1045,7 +1049,9 @@ export function startTaskWorker() {
                     ? parseGeminiEvent(lineBuf, taskId)
                     : task.agentType === "openclaw"
                       ? parseOpenClawEvent(lineBuf, taskId)
-                      : parseClaudeEvent(lineBuf, taskId);
+                      : task.agentType === "cursor"
+                        ? parseCursorEvent(lineBuf, taskId)
+                        : parseClaudeEvent(lineBuf, taskId);
           for (const entry of parsed.entries) {
             await taskService.appendTaskLog(
               taskId,
@@ -1907,6 +1913,20 @@ export function buildAgentCommand(
         `openclaw agent --output-format stream-json${openclawModelFlag}${openclawAgentFlag} "$OPTIO_PROMPT"`,
       ];
     }
+    case "cursor": {
+      const cursorModelFlag = env.OPTIO_CURSOR_MODEL
+        ? ` --model ${shellQuote(env.OPTIO_CURSOR_MODEL)}`
+        : "";
+      // --resume takes the chat id from the prior run's system:init event
+      const cursorResumeFlag = opts?.resumeSessionId
+        ? ` --resume ${shellQuote(opts.resumeSessionId)}`
+        : "";
+      return [
+        `echo "[optio] Running Cursor${opts?.isReview ? " (review)" : ""}..."`,
+        `cursor-agent --print --trust --force \\`,
+        `  --output-format stream-json${cursorModelFlag}${cursorResumeFlag} "$OPTIO_PROMPT"`,
+      ];
+    }
     default:
       return [`echo "Unknown agent type: ${agentType}" && exit 1`];
   }
@@ -2032,6 +2052,28 @@ export function inferExitCode(agentType: string, logs: string): number {
       return hasErrorEvent || hasApiErrorEnvelope || hasAuthError || hasModelError || hasFatalError
         ? 1
         : 0;
+    }
+    case "cursor": {
+      // Cursor emits a Claude-style terminal result event — use it when present.
+      for (const line of logs.split("\n")) {
+        try {
+          const ev = JSON.parse(line);
+          if (ev.type === "result") {
+            return ev.is_error ? 1 : 0;
+          }
+        } catch {
+          // Not JSON — skip
+        }
+      }
+      // No result event — headless failures print plain text to stderr.
+      const hasAuthError =
+        /CURSOR_API_KEY|invalid.*api.?key|unauthorized|authentication.*failed|not.*logged.*in/i.test(
+          logs,
+        );
+      const hasQuotaError = /usage limit|quota|subscription.*required/i.test(logs);
+      const hasModelError = /model.*not found|model_not_found|does not exist.*model/i.test(logs);
+      const hasErrorEvent = logs.includes('"type":"error"') || logs.includes('"type": "error"');
+      return hasAuthError || hasQuotaError || hasModelError || hasErrorEvent ? 1 : 0;
     }
     case "claude-code":
     default: {

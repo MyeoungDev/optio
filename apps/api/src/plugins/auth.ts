@@ -117,6 +117,7 @@ const AGENT_KEY_SECRETS = [
   "CLAUDE_CODE_OAUTH_TOKEN",
   "COPILOT_GITHUB_TOKEN",
   "GEMINI_API_KEY",
+  "CURSOR_API_KEY",
   // Vertex-mode installs store project ids rather than API keys; count them
   // so a Vertex-only setup still locks the /api/setup/* routes (mirrors the
   // per-provider checks in routes/setup.ts).
